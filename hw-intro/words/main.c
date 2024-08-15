@@ -46,7 +46,31 @@ WordCount *word_counts = NULL;
  */
 int num_words(FILE* infile) {
   int num_words = 0;
+  if (infile == NULL)
+    return 0;
+  
+  char* buffer = malloc(sizeof(char) * 1024);
+  memset(buffer, 0, sizeof(char) * 1024);
 
+  int cur_word_len = 0;
+  while (fgets(buffer, 1024, infile) != NULL) {
+    for (int i = 0; i <strlen(buffer); i++) {
+      if (isalpha(buffer[i])) {
+        cur_word_len++;
+      } else if (buffer[i] == ' ' && cur_word_len > 0) {
+        num_words++;
+        printf("cur_word_len: %d, index: %d, total num: %d\n", cur_word_len, i, num_words);
+        cur_word_len = 0;
+      }
+    }
+
+    if (cur_word_len > 0) {
+      num_words++;
+      cur_word_len = 0;
+    }
+  }
+
+  rewind(infile);
   return num_words;
 }
 
@@ -62,6 +86,23 @@ int num_words(FILE* infile) {
  * and 0 otherwise.
  */
 int count_words(WordCount **wclist, FILE *infile) {
+  if (wclist == NULL || infile == NULL) {
+    return 0;
+  }
+
+  char tmp_word[MAX_WORD_LEN] = {0};
+  int cur_word_len = 0;
+  int c = 0;
+
+  while ((c = fgetc(infile)) != EOF) {
+    if (isalpha(c)) {
+      tmp_word[cur_word_len++] = tolower(c);
+    } else if (cur_word_len > 0) {
+      add_word(wclist, tmp_word);
+      memset(tmp_word, 0, sizeof(tmp_word));
+      cur_word_len = 0;
+    }
+  }
   return 0;
 }
 
@@ -70,6 +111,19 @@ int count_words(WordCount **wclist, FILE *infile) {
  * Useful function: strcmp().
  */
 static bool wordcount_less(const WordCount *wc1, const WordCount *wc2) {
+  if (!wc1 || !wc2)
+    return false;
+  
+  if (wc1->count < wc2->count)
+    return true;
+  else if (wc1->count > wc2->count)
+    return false;
+  else {
+    if (strcmp(wc1->word, wc2->word) < 0)
+      return true;
+    else
+      return false;
+  }
   return 0;
 }
 
@@ -129,14 +183,28 @@ int main (int argc, char *argv[]) {
 
   /* Create the empty data structure */
   init_words(&word_counts);
+  char* buffer = malloc(sizeof(char) * 100);
+  memset(buffer, 0, sizeof(char) * 100);
 
   if ((argc - optind) < 1) {
     // No input file specified, instead, read from STDIN instead.
     infile = stdin;
+    total_words += num_words(infile);
+    count_words(&word_counts, infile);
   } else {
     // At least one file specified. Useful functions: fopen(), fclose().
     // The first file can be found at argv[optind]. The last file can be
     // found at argv[argc-1].
+    for (int i = optind; i < argc; i++) {
+      infile = fopen(argv[i], "r");
+      if (infile == NULL) {
+        printf("Could not open file %s\n", argv[i]);
+        return -1;
+      }
+      total_words += num_words(infile);
+      count_words(&word_counts, infile);
+      fclose(infile);
+    }
   }
 
   if (count_mode) {
